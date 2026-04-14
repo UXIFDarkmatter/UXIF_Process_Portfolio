@@ -1,0 +1,132 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #06080d;
+  color: #e8eaf0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+#bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 2rem 2rem;
+  pointer-events: none;
+}
+
+header {
+  text-align: center;
+  max-width: 720px;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.tagline {
+  margin: 0;
+  color: #8b92a5;
+  font-size: 1.1rem;
+}
+
+/* --- Detail overlay (card detail view) --- */
+#detail-overlay {
+  position: fixed;
+  top: 260px;
+  right: calc(11% - 50px);
+  width: 30%;
+  height: calc(100% - 100px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 2rem 1.2rem 18%;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+#detail-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#detail-close {
+  position: fixed;
+  top: 1.2rem;
+  right: 1.5rem;
+  background: none;
+  border: 2px solid rgba(255, 122, 26, 0.4);
+  border-radius: 50%;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff7a1a;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  z-index: 3;
+}
+
+#detail-close:hover {
+  background: rgba(255, 122, 26, 0.15);
+  border-color: #ff7a1a;
+}
+
+#detail-content {
+  background: rgba(20, 22, 30, 0.72);
+  border-radius: 14px;
+  padding: 1.6rem 1.5rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+#detail-title {
+  color: #ff7a1a;
+  font-size: clamp(1.4rem, 2.5vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  margin: 0 0 clamp(0.6rem, 1vw, 1.4rem);
+  border-right: 2px solid transparent;
+  min-height: 1.2em;
+}
+
+#detail-title.typing {
+  border-right-color: #ff7a1a;
+}
+
+#detail-content p {
+  color: #ffffff;
+  font-size: clamp(0.85rem, 1.1vw, 1.4rem);
+  line-height: 1.8;
+  margin: 0 0 clamp(0.6rem, 0.8vw, 1.3rem);
+}
