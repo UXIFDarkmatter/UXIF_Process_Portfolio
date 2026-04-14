@@ -208,6 +208,14 @@ h1 {
 }
 
 /* --- Narrow viewports: text below cards --- */
+/* Prevent text from ever scrolling or going off bottom */
+#detail-content p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+  overflow: hidden;
+}
+
 @media (max-aspect-ratio: 4/3) {
   #detail-overlay {
     top: auto;
@@ -216,14 +224,18 @@ h1 {
     right: 0;
     width: 100%;
     height: auto;
-    max-height: 35vh;
+    max-height: 32vh;
     padding: 1.2rem 2rem 1.5rem;
     justify-content: flex-start;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   #detail-content {
-    text-align: center;
+    text-align: left;
+  }
+
+  #detail-content p {
+    -webkit-line-clamp: 5;
   }
 
   #detail-title {
@@ -237,8 +249,12 @@ h1 {
 
 @media (max-aspect-ratio: 3/4) {
   #detail-overlay {
-    max-height: 30vh;
+    max-height: 28vh;
     padding: 1rem 1.5rem;
+  }
+
+  #detail-content p {
+    -webkit-line-clamp: 3;
   }
 
   #detail-title {

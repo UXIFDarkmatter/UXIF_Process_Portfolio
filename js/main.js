@@ -5,7 +5,6 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { Lensflare, LensflareElement } from "three/addons/objects/Lensflare.js";
 
 // --- Config ---------------------------------------------------------------
 // Edit titles here. Front (1) -> back (4).
@@ -601,48 +600,6 @@ async function buildStack() {
     camera.add(embers);
   }
 
-  // --- Lens flare ---
-  {
-    // Procedural flare textures
-    function makeFlareTexture(innerColor, outerColor, size) {
-      const cvs = document.createElement("canvas");
-      cvs.width = size;
-      cvs.height = size;
-      const ctx = cvs.getContext("2d");
-      const g = ctx.createRadialGradient(
-        size / 2, size / 2, 0,
-        size / 2, size / 2, size / 2
-      );
-      g.addColorStop(0, innerColor);
-      g.addColorStop(1, outerColor);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, size, size);
-      return new THREE.CanvasTexture(cvs);
-    }
-
-    const flareMain = makeFlareTexture(
-      "rgba(255,250,230,1)",
-      "rgba(255,120,20,0)",
-      256
-    );
-    const flareRing = makeFlareTexture(
-      "rgba(255,180,80,0.15)",
-      "rgba(255,140,40,0)",
-      256
-    );
-
-    const lensflare = new Lensflare();
-    lensflare.addElement(new LensflareElement(flareMain, 350, 0, new THREE.Color(0xffeedd)));
-    lensflare.addElement(new LensflareElement(flareRing, 120, 0.15, new THREE.Color(0xffcc88)));
-    lensflare.addElement(new LensflareElement(flareRing, 90, 0.4, new THREE.Color(0xffaa66)));
-    lensflare.addElement(new LensflareElement(flareRing, 60, 0.65, new THREE.Color(0xff9944)));
-    lensflare.addElement(new LensflareElement(flareRing, 40, 0.85, new THREE.Color(0xff8833)));
-
-    // Position the flare source in world space — upper-right, behind the stack.
-    lensflare.position.set(8, 7, -6);
-    scene.add(lensflare);
-  }
-
   CARDS.forEach((cfg, i) => {
     const source = videos[i] || images[i];
     const built = buildCardTexture(source, cfg.title);
@@ -903,7 +860,6 @@ function updateIntro(now) {
   // Gradually bring bloom and lens flare in during the first ~4 seconds
   const effectFade = THREE.MathUtils.clamp(t / 4, 0, 1);
   bloomPass.strength = 0.28 * effectFade;
-  scene.traverse((obj) => { if (obj.isLensflare) obj.visible = effectFade > 0.3; });
 
   // --- Done ---
   if (t >= T.componentEntry.start + T.componentEntry.duration) {
@@ -1212,6 +1168,7 @@ function computeTabLayout(activeIdx) {
   nonActiveJs.sort((a, b) => a - b);
 
   // On narrow viewports, center the cards (text goes below via CSS).
+  // On phone portrait, shift cards up so they sit above the text panel.
   const aspect = window.innerWidth / window.innerHeight;
   const anchorX = aspect < 1.2 ? -0.3 : ACTIVE_X;
 
@@ -1243,7 +1200,10 @@ function computeTabLayout(activeIdx) {
   const stackForward = new THREE.Vector3(0, 0, 1).applyQuaternion(stack.quaternion);
   const stackCenter = stack.position.clone();
   detailCameraPos.copy(stackCenter).addScaledVector(stackForward, DETAIL_CAM_DIST);
-  detailCameraTarget.copy(stackCenter).add(new THREE.Vector3(0, 0.15, 0));
+  // On narrow/portrait screens, shift the camera target up so cards
+  // sit in the upper portion of the screen above the text panel.
+  const yLift = aspect < 1.2 ? 0.6 : (aspect < 0.75 ? 1.0 : 0.15);
+  detailCameraTarget.copy(stackCenter).add(new THREE.Vector3(0, yLift, 0));
 }
 
 function enterDetailMode(index) {
@@ -1394,7 +1354,6 @@ function updateDetailTransition(dt) {
 
   // Kill bloom and lens flare BEFORE any renders so first frame is dark
   bloomPass.strength = 0;
-  scene.traverse((obj) => { if (obj.isLensflare) obj.visible = false; });
 
   // Warmup renders — compiles all shaders while bloom/flare are off
   composer.render();
