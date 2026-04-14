@@ -754,7 +754,8 @@ async function buildStack() {
   camera.lookAt(controls.target);
 
   introReady = true;
-  introStartedAt = clock.getElapsedTime();
+  // introStartedAt is set on the first animate() frame so the intro
+  // timeline doesn't run while the preloader is still visible.
 }
 
 function updateIntro(now) {
@@ -898,6 +899,11 @@ function updateIntro(now) {
   const fadeStart = T.componentEntry.start;
   const fadeEnd = T.componentEntry.start + T.componentEntry.duration;
   introOpacity = THREE.MathUtils.clamp((t - fadeStart) / (fadeEnd - fadeStart), 0, 1);
+
+  // Gradually bring bloom and lens flare in during the first ~4 seconds
+  const effectFade = THREE.MathUtils.clamp(t / 4, 0, 1);
+  bloomPass.strength = 0.28 * effectFade;
+  scene.traverse((obj) => { if (obj.isLensflare) obj.visible = effectFade > 0.3; });
 
   // --- Done ---
   if (t >= T.componentEntry.start + T.componentEntry.duration) {
@@ -1205,9 +1211,13 @@ function computeTabLayout(activeIdx) {
   }
   nonActiveJs.sort((a, b) => a - b);
 
-  // Active card: always at the same fixed anchor (front-left).
+  // On narrow viewports, center the cards (text goes below via CSS).
+  const aspect = window.innerWidth / window.innerHeight;
+  const anchorX = aspect < 1.2 ? -0.3 : ACTIVE_X;
+
+  // Active card: always at the same fixed anchor (front-left, or centered on narrow).
   posMap[TAB_ORDER[activeJ]] = new THREE.Vector3(
-    ACTIVE_X,
+    anchorX,
     RANK_Y[0],
     TAB_ACTIVE_Z
   );
@@ -1217,7 +1227,7 @@ function computeTabLayout(activeIdx) {
   for (let rank = 0; rank < nonActiveJs.length; rank++) {
     const j = nonActiveJs[rank];
     posMap[TAB_ORDER[j]] = new THREE.Vector3(
-      ACTIVE_X + (rank + 1) * TAB_X_SPACING,
+      anchorX + (rank + 1) * TAB_X_SPACING,
       RANK_Y[rank + 1],
       -(rank + 1) * 0.015
     );
@@ -1316,6 +1326,8 @@ function updateDetailTransition(dt) {
     t
   );
   camera.lookAt(lookTarget);
+  // Subtle clockwise roll to align card edges with the text box
+  camera.rotateZ(-0.03 * t);
 
   // --- Tab-switch shuffle (runs on top of main transition when in detail) ---
   if (shuffleProgress < 1) {
@@ -1380,20 +1392,30 @@ function updateDetailTransition(dt) {
   // Ensure logo spin has finished before we transition
   await minWait;
 
-  // Warmup renders — compiles all shaders so the first visible frame is smooth
+  // Kill bloom and lens flare BEFORE any renders so first frame is dark
+  bloomPass.strength = 0;
+  scene.traverse((obj) => { if (obj.isLensflare) obj.visible = false; });
+
+  // Warmup renders — compiles all shaders while bloom/flare are off
   composer.render();
   composer.render();
   composer.render();
 
-  // Show canvas behind preloader, then fade preloader out
+  // Start the render loop FIRST (scene renders dark behind the covers)
   canvas.classList.add("visible");
+  animate();
+
+  // Small delay then fade out the black cover — intro is already playing underneath
+  await new Promise((r) => setTimeout(r, 300));
+  const blackCover = document.getElementById("black-cover");
+  blackCover.classList.add("fade");
+
+  // Fade out preloader (logo + bar) on top of the reveal
   const preloader = document.getElementById("preloader");
   preloader.classList.add("done");
-  await new Promise((r) => setTimeout(r, 650));
+  await new Promise((r) => setTimeout(r, 1000));
   preloader.style.display = "none";
-
-  // Start the render loop
-  animate();
+  blackCover.style.display = "none";
 })();
 
 // --- Wire up detail overlay + click handlers ------------------------------
@@ -1427,19 +1449,43 @@ canvas.addEventListener("click", () => {
 });
 
 // --- Resize ---------------------------------------------------------------
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+// --- Responsive: adjust FOV so the scene stays framed on narrow viewports ---
+const BASE_ASPECT = 16 / 9;
+const BASE_FOV = 50;
+
+function updateResponsiveFOV() {
+  const aspect = window.innerWidth / window.innerHeight;
+  if (aspect < BASE_ASPECT) {
+    // Widen FOV proportionally as viewport narrows
+    camera.fov = Math.min(BASE_FOV * (BASE_ASPECT / aspect), 90);
+  } else {
+    camera.fov = BASE_FOV;
+  }
+  camera.aspect = aspect;
   camera.updateProjectionMatrix();
+}
+
+window.addEventListener("resize", () => {
+  updateResponsiveFOV();
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   composer.setSize(window.innerWidth, window.innerHeight);
   bloomPass.setSize(window.innerWidth, window.innerHeight);
 });
+// Run once at init
+updateResponsiveFOV();
 
 // --- Animate --------------------------------------------------------------
 const clock = new THREE.Clock();
+let introTimerStarted = false;
 function animate() {
   const now = clock.getElapsedTime();
   lastFrameTime = lastFrameTime || now;
+
+  // Start the intro timeline on the first animate frame (not during preload).
+  if (!introTimerStarted && introReady) {
+    introStartedAt = now;
+    introTimerStarted = true;
+  }
 
   if (introComplete) {
     const dt = now - lastFrameTime;
