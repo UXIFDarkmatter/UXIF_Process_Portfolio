@@ -1368,8 +1368,8 @@ function updateDetailTransition(dt) {
 
 // --- Preloader flow: load assets with progress, then start the scene ---
 (async function startWithPreloader() {
-  // Minimum display time for logo spin animation (2.2s)
-  const minWait = new Promise((r) => setTimeout(r, 2200));
+  // Minimum display time for logo fly-up animation (1.8s)
+  const minWait = new Promise((r) => setTimeout(r, 1800));
 
   try {
     await buildStack();
@@ -1385,7 +1385,8 @@ function updateDetailTransition(dt) {
   composer.render();
   composer.render();
 
-  // Fade out preloader
+  // Show canvas behind preloader, then fade preloader out
+  canvas.classList.add("visible");
   const preloader = document.getElementById("preloader");
   preloader.classList.add("done");
   await new Promise((r) => setTimeout(r, 650));
