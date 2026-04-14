@@ -409,17 +409,31 @@ function makeBackgroundTexture(centerColor, edgeColor = "#06080d") {
 }
 
 async function buildStack() {
+  // --- Asset loading with progress bar ---
+  const progressBar = document.getElementById("preloader-bar");
+  const videoCount = CARDS.filter((c) => c.video).length;
+  const totalAssets = 2 + CARDS.length + videoCount; // bg + char + cards + videos
+  let loadedCount = 0;
+  function trackLoad(promise) {
+    return promise.then((result) => {
+      loadedCount++;
+      if (progressBar)
+        progressBar.style.width = (loadedCount / totalAssets) * 100 + "%";
+      return result;
+    });
+  }
+
   const [bgImage, charImage, ...images] = await Promise.all([
-    loadImage("images/BG_UXIF_Portfolio.png"),
-    loadImage("images/Bolgar_Burr_Versus.webp"),
-    ...CARDS.map((c) => loadImage(c.src)),
+    trackLoad(loadImage("images/BG_UXIF_Portfolio.png")),
+    trackLoad(loadImage("images/Bolgar_Burr_Versus.webp")),
+    ...CARDS.map((c) => trackLoad(loadImage(c.src))),
   ]);
 
   // Load any videos referenced by cards (keyed by card index)
   const videos = {};
   await Promise.all(
     CARDS.map(async (cfg, i) => {
-      if (cfg.video) videos[i] = await loadVideo(cfg.video);
+      if (cfg.video) videos[i] = await trackLoad(loadVideo(cfg.video));
     })
   );
 
@@ -1352,9 +1366,34 @@ function updateDetailTransition(dt) {
   detailOverlay.classList.toggle("active", detailProgress > 0.5);
 }
 
-buildStack().catch((err) => {
-  console.error("Failed to build card stack:", err);
-});
+// --- Preloader flow: load assets with progress, then start the scene ---
+(async function startWithPreloader() {
+  // Minimum display time for logo spin animation (2.2s)
+  const minWait = new Promise((r) => setTimeout(r, 2200));
+
+  try {
+    await buildStack();
+  } catch (err) {
+    console.error("Failed to build card stack:", err);
+  }
+
+  // Ensure logo spin has finished before we transition
+  await minWait;
+
+  // Warmup renders — compiles all shaders so the first visible frame is smooth
+  composer.render();
+  composer.render();
+  composer.render();
+
+  // Fade out preloader
+  const preloader = document.getElementById("preloader");
+  preloader.classList.add("done");
+  await new Promise((r) => setTimeout(r, 650));
+  preloader.style.display = "none";
+
+  // Start the render loop
+  animate();
+})();
 
 // --- Wire up detail overlay + click handlers ------------------------------
 detailOverlay = document.getElementById("detail-overlay");
@@ -1532,4 +1571,3 @@ function animate() {
   lastFrameTime = now;
   requestAnimationFrame(animate);
 }
-animate();
